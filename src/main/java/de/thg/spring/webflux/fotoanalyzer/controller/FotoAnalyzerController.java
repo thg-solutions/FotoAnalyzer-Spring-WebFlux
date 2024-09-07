@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -44,6 +46,26 @@ public class FotoAnalyzerController {
                         return ResponseEntity.ok(opt.get());
                     } else {
                         return ResponseEntity.notFound().build();}
+                });
+    }
+
+    @PostMapping(value = "rename_images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Mono<ResponseEntity<?>> renameImages(@RequestPart("files") Flux<FilePart> filePartFlux) {
+        return filePartFlux.flatMap(fp -> {
+                    String filename = fp.filename();
+                    try (InputStream inputStream = getInputStreamFromFluxDataBuffer(fp.content())) {
+                        return Mono.just(service.createNameByCreationDate(inputStream, filename));
+                    } catch (IOException e) {
+                        return Flux.error(new RuntimeException(e));
+                    }
+                }).filter(Optional::isPresent).map(Optional::get)
+                .collect(HashMap::new, Map::putAll)
+                .map(item -> {
+                    if (item.isEmpty()) {
+                        return ResponseEntity.notFound().build();
+                    } else {
+                        return ResponseEntity.ok(item);
+                    }
                 });
     }
 
